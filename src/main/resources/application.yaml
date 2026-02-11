@@ -1,3 +1,28 @@
 spring:
   application:
     name: online.judge
+
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://judge:judge123@localhost:27017/online_judge?authSource=admin}
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+logging:
+  level:
+    com.aandiclub.online.judge: DEBUG
+
+judge:
+  sandbox:
+    time-limit-seconds: ${SANDBOX_TIME_LIMIT_SECONDS:2}
+    memory-limit-mb: ${SANDBOX_MEMORY_LIMIT_MB:128}
+    cpu-limit: ${SANDBOX_CPU_LIMIT:1.0}
+    pids-limit: ${SANDBOX_PIDS_LIMIT:50}
+    images:
+      python: ${SANDBOX_IMAGE_PYTHON:judge-sandbox-python:latest}
+      kotlin: ${SANDBOX_IMAGE_KOTLIN:judge-sandbox-kotlin:latest}
+      dart: ${SANDBOX_IMAGE_DART:judge-sandbox-dart:latest}
