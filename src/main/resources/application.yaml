@@ -4,9 +4,10 @@ spring:
   main:
     web-application-type: reactive
 
+  mongodb:
+    uri: ${MONGODB_URI:mongodb://judge:judge123@mongodb:27017/online_judge?authSource=admin}
+
   data:
-    mongodb:
-      uri: ${MONGODB_URI:mongodb://judge:judge123@mongodb:27017/online_judge?authSource=admin}
     redis:
       host: ${REDIS_HOST:redis}
       port: ${REDIS_PORT:6379}
