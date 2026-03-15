@@ -47,7 +47,7 @@ judge:
     allow-credentials: ${JUDGE_CORS_ALLOW_CREDENTIALS:false}
     max-age-seconds: ${JUDGE_CORS_MAX_AGE_SECONDS:3600}
   openapi:
-    server-url: ${APP_OPENAPI_SERVER_URL:}
+    server-url: ${APP_OPENAPI_SERVER_URL:https://api.aandiclub.com}
   jwt-auth:
     enabled: ${JUDGE_JWT_AUTH_ENABLED:true}
     signing-key: ${JUDGE_JWT_AUTH_SIGNING_KEY:}
