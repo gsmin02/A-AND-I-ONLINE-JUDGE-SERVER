@@ -320,6 +320,8 @@ jobs:
           SPRING_DATA_REDIS_HOST="${SPRING_DATA_REDIS_HOST:-${REDIS_HOST}}"
           SPRING_DATA_REDIS_PORT="${SPRING_DATA_REDIS_PORT:-${REDIS_PORT}}"
 
+          MONGODB_URI="${MONGODB_URI:-mongodb://${MONGODB_USER}:${MONGODB_PASSWORD}@mongodb:27017/${MONGODB_DATABASE}?authSource=admin}"
+
           yaml_quote() {
             printf "'%s'" "$(printf "%s" "${1:-}" | sed "s/'/'\"'\"'/g")"
           }
@@ -388,6 +390,7 @@ jobs:
             for key in "${app_env_keys[@]}"; do
               compose_env_entry "${key}" "${!key}"
             done
+            compose_env_entry "MONGODB_URI" "${MONGODB_URI}"
             compose_env_entry "REDIS_HOST" "${REDIS_HOST}"
             compose_env_entry "REDIS_PORT" "${REDIS_PORT}"
             compose_env_entry "SPRING_DATA_REDIS_HOST" "${SPRING_DATA_REDIS_HOST}"
