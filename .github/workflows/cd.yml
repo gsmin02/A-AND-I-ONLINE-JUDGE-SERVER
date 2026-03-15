@@ -219,6 +219,7 @@ jobs:
           MONGODB_CONTAINER_NAME="$(decode_b64 "${MONGODB_CONTAINER_NAME_B64:-}")"
           REDIS_PASSWORD="$(decode_b64 "${REDIS_PASSWORD_B64:-}")"
           JUDGE_PROBLEM_EVENTS_QUEUE_URL="$(decode_b64 "${JUDGE_PROBLEM_EVENTS_QUEUE_URL_B64:-}")"
+          APP_OPENAPI_SERVER_URL="$(decode_b64 "${APP_OPENAPI_SERVER_URL_B64:-}")"
 
           app_env_keys=()
 
