@@ -52,6 +52,8 @@ class JwtAuthFilter(
             return unauthorized(exchange, result.reason ?: "Invalid JWT")
         }
 
+        exchange.attributes[JwtExchangeAttributes.SUBJECT] = result.subject
+        exchange.attributes[JwtExchangeAttributes.ROLES] = result.roles
         return chain.filter(exchange)
     }
 
@@ -91,7 +93,12 @@ class JwtAuthFilter(
             return JwtValidationResult(false, "Insufficient role (requires ${properties.requiredRole}+)")
         }
 
-        return JwtValidationResult(true, null)
+        return JwtValidationResult(
+            valid = true,
+            reason = null,
+            subject = sub,
+            roles = roles,
+        )
     }
 
     private fun decodeJsonPart(base64Url: String): JsonNode? =
@@ -180,5 +187,7 @@ class JwtAuthFilter(
     private data class JwtValidationResult(
         val valid: Boolean,
         val reason: String?,
+        val subject: String = "",
+        val roles: Set<String> = emptySet(),
     )
 }

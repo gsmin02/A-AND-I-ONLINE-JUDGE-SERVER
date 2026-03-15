@@ -33,6 +33,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.max
+import tools.jackson.databind.ObjectMapper
 
 @Testcontainers
 @SpringBootTest(
@@ -60,12 +61,24 @@ class SubmissionWorkflowE2ETest {
     private lateinit var listenerContainer: ReactiveRedisMessageListenerContainer
 
     private lateinit var webTestClient: WebTestClient
+    private val objectMapper = ObjectMapper()
 
     @BeforeEach
     fun setup() {
         submissionRepository.deleteAll().block()
         every { redisTemplate.convertAndSend(any(), any()) } returns Mono.just(1L)
         every { listenerContainer.receive(any<ChannelTopic>()) } returns Flux.empty()
+        coEvery { sandboxRunner.run(any(), any<SandboxInput>()) } answers {
+            val input = secondArg<SandboxInput>()
+            val sum = input.args.sumOf { (it as Number).toInt() }
+            SandboxOutput(
+                status = TestCaseStatus.PASSED,
+                output = sum.toString(),
+                error = null,
+                timeMs = 1.2,
+                memoryMb = 2.4,
+            )
+        }
         webTestClient = WebTestClient.bindToServer()
             .baseUrl("http://localhost:$port")
             .build()
@@ -73,21 +86,47 @@ class SubmissionWorkflowE2ETest {
 
     @Test
     fun `post submission triggers worker and updates mongodb status`() {
-        coEvery { sandboxRunner.run(Language.PYTHON, any<SandboxInput>()) } returns SandboxOutput(
-            status = TestCaseStatus.PASSED,
-            output = "8",
-            error = null,
-            timeMs = 1.2,
-            memoryMb = 2.4,
-        )
-
         val accepted = submitSamplePython()
         val completed = awaitCompleted(accepted.submissionId)
 
         assertEquals(SubmissionStatus.ACCEPTED, completed.status)
-        assertEquals(1, completed.testCaseResults.size)
-        assertEquals(TestCaseStatus.PASSED, completed.testCaseResults.first().status)
-        assertEquals("8", completed.testCaseResults.first().output)
+        assertEquals("anonymous", completed.submitterId)
+        assertEquals("A00123", completed.submitterPublicCode)
+        assertEquals(10, completed.testCaseResults.size)
+        assertEquals(quiz101ExpectedOutputs, completed.testCaseResults.map { it.output })
+        assertTrue(completed.testCaseResults.all { it.status == TestCaseStatus.PASSED })
+    }
+
+    @Test
+    fun `post kotlin submission triggers worker and updates mongodb status`() {
+        val accepted = submitSample(
+            language = Language.KOTLIN,
+            code = "fun solution(a: Int, b: Int): Int = a + b",
+        )
+        val completed = awaitCompleted(accepted.submissionId)
+
+        assertEquals(SubmissionStatus.ACCEPTED, completed.status)
+        assertEquals("anonymous", completed.submitterId)
+        assertEquals("A00123", completed.submitterPublicCode)
+        assertEquals(10, completed.testCaseResults.size)
+        assertEquals(quiz101ExpectedOutputs, completed.testCaseResults.map { it.output })
+        assertTrue(completed.testCaseResults.all { it.status == TestCaseStatus.PASSED })
+    }
+
+    @Test
+    fun `post dart submission triggers worker and updates mongodb status`() {
+        val accepted = submitSample(
+            language = Language.DART,
+            code = "int solution(int a, int b) => a + b;",
+        )
+        val completed = awaitCompleted(accepted.submissionId)
+
+        assertEquals(SubmissionStatus.ACCEPTED, completed.status)
+        assertEquals("anonymous", completed.submitterId)
+        assertEquals("A00123", completed.submitterPublicCode)
+        assertEquals(10, completed.testCaseResults.size)
+        assertEquals(quiz101ExpectedOutputs, completed.testCaseResults.map { it.output })
+        assertTrue(completed.testCaseResults.all { it.status == TestCaseStatus.PASSED })
     }
 
     @Test
@@ -100,9 +139,11 @@ class SubmissionWorkflowE2ETest {
             maxActive.updateAndGet { prev -> max(prev, now) }
             try {
                 delay(300)
+                val input = secondArg<SandboxInput>()
+                val sum = input.args.sumOf { (it as Number).toInt() }
                 SandboxOutput(
                     status = TestCaseStatus.PASSED,
-                    output = "8",
+                    output = sum.toString(),
                     error = null,
                     timeMs = 5.0,
                     memoryMb = 3.0,
@@ -120,15 +161,25 @@ class SubmissionWorkflowE2ETest {
     }
 
     private fun submitSamplePython(): SubmissionAccepted =
+        submitSample(
+            language = Language.PYTHON,
+            code = "def solution(a,b): return a+b",
+        )
+
+    private fun submitSample(
+        language: Language,
+        code: String,
+    ): SubmissionAccepted =
         webTestClient.post()
             .uri("/v1/submissions")
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(
                 """
                 {
+                  "publicCode": "A00123",
                   "problemId": "quiz-101",
-                  "language": "PYTHON",
-                  "code": "def solution(a,b): return a+b"
+                  "language": "${language.name}",
+                  "code": ${objectMapper.writeValueAsString(code)}
                 }
                 """.trimIndent()
             )
@@ -155,6 +206,8 @@ class SubmissionWorkflowE2ETest {
     }
 
     companion object {
+        private val quiz101ExpectedOutputs = listOf("8", "12", "0", "-3", "350", "0", "1000", "100", "-42", "5555")
+
         @Container
         @ServiceConnection
         @JvmStatic

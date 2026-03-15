@@ -13,6 +13,13 @@ import jakarta.validation.constraints.Size
 )
 data class SubmissionRequest(
     @field:NotBlank
+    @field:Size(max = 64)
+    @field:Schema(
+        description = "Public code shown to administrators for identifying the submitter.",
+        example = "A00123",
+    )
+    val publicCode: String,
+    @field:NotBlank
     @field:Pattern(regexp = "^[a-zA-Z0-9-]+$")
     @field:Schema(
         description = "Problem identifier registered in the judge catalog.",

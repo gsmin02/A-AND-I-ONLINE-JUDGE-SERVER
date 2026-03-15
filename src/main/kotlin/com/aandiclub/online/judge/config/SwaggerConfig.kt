@@ -40,14 +40,16 @@ class SwaggerConfig(
 
                     Basic flow:
                     1. Authorize with a Bearer JWT in Swagger UI.
-                    2. POST a submission to create a judge job.
+                    2. Open `POST /v1/submissions` and pick one of the built-in language examples.
                     3. Subscribe to the SSE stream for live test-case events.
                     4. Poll the final result endpoint when you need the aggregated status.
+                    5. Inspect your per-problem history via `GET /v1/problems/{problemId}/submissions/me`.
 
                     Notes:
                     - Submission creation returns quickly with HTTP 202; actual judging runs asynchronously.
                     - SSE emits `test_case_result`, `done`, and `error` events.
                     - JWT auth is enabled by default and requires at least USER role.
+                    - `quiz-101` is preconfigured with 10 sum test cases for quick Swagger testing.
                     """.trimIndent()
                 )
         )
@@ -55,6 +57,16 @@ class SwaggerConfig(
             Tag()
                 .name("Submissions")
                 .description("Create submissions, consume live SSE updates, and fetch final verdicts.")
+        )
+        .addTagsItem(
+            Tag()
+                .name("Problem Submissions")
+                .description("List the authenticated user's submission history for a problem.")
+        )
+        .addTagsItem(
+            Tag()
+                .name("Admin Submissions")
+                .description("View all stored submission records with ADMIN privileges.")
         )
 
     @Bean

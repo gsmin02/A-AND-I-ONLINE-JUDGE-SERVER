@@ -9,6 +9,8 @@ import java.util.UUID
 @Document(collection = "submissions")
 data class Submission(
     @Id val id: String = UUID.randomUUID().toString(),
+    val submitterId: String = LEGACY_SUBMITTER_ID,
+    val submitterPublicCode: String = LEGACY_PUBLIC_CODE,
     val problemId: String,
     val language: Language,
     @Field("code") val code: String,
@@ -16,4 +18,9 @@ data class Submission(
     var testCaseResults: List<TestCaseResult> = emptyList(),
     val createdAt: Instant = Instant.now(),
     var completedAt: Instant? = null,
-)
+) {
+    companion object {
+        const val LEGACY_SUBMITTER_ID: String = "legacy"
+        const val LEGACY_PUBLIC_CODE: String = "LEGACY"
+    }
+}

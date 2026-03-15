@@ -13,6 +13,7 @@ class SubmissionRequestValidationTest {
     @Test
     fun `problemId accepts alphanumeric and hyphen`() {
         val req = SubmissionRequest(
+            publicCode = "A00123",
             problemId = "quiz-101-A1",
             language = Language.PYTHON,
             code = "def solution(a,b): return a+b",
@@ -26,6 +27,7 @@ class SubmissionRequestValidationTest {
     @Test
     fun `problemId rejects invalid characters`() {
         val req = SubmissionRequest(
+            publicCode = "A00123",
             problemId = "quiz_101 bad",
             language = Language.PYTHON,
             code = "def solution(a,b): return a+b",

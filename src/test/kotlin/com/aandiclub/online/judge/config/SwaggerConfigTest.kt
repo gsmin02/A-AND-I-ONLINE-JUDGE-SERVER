@@ -1,5 +1,7 @@
 package com.aandiclub.online.judge.config
 
+import com.aandiclub.online.judge.api.AdminSubmissionController
+import com.aandiclub.online.judge.api.ProblemSubmissionController
 import com.aandiclub.online.judge.api.SubmissionController
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.security.SecurityScheme
@@ -20,7 +22,7 @@ class SwaggerConfigTest {
 
         assertEquals("AANDI Club Online Judge API", openApi.info.title)
         assertTrue(openApi.info.description.contains("Asynchronous online judge API"))
-        assertEquals(listOf("Submissions"), openApi.tags.map { it.name })
+        assertEquals(listOf("Submissions", "Problem Submissions", "Admin Submissions"), openApi.tags.map { it.name })
     }
 
     @Test
@@ -59,6 +61,22 @@ class SwaggerConfigTest {
     @Test
     fun `submission endpoints require bearer auth in openapi`() {
         val annotation = SubmissionController::class.java.getAnnotation(SecurityRequirement::class.java)
+
+        assertNotNull(annotation)
+        assertEquals("bearerAuth", annotation.name)
+    }
+
+    @Test
+    fun `admin submission endpoints require bearer auth in openapi`() {
+        val annotation = AdminSubmissionController::class.java.getAnnotation(SecurityRequirement::class.java)
+
+        assertNotNull(annotation)
+        assertEquals("bearerAuth", annotation.name)
+    }
+
+    @Test
+    fun `problem submission endpoints require bearer auth in openapi`() {
+        val annotation = ProblemSubmissionController::class.java.getAnnotation(SecurityRequirement::class.java)
 
         assertNotNull(annotation)
         assertEquals("bearerAuth", annotation.name)

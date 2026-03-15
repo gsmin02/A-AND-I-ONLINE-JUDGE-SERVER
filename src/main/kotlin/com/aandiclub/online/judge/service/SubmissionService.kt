@@ -1,5 +1,7 @@
 package com.aandiclub.online.judge.service
 
+import com.aandiclub.online.judge.api.dto.AdminSubmissionRecord
+import com.aandiclub.online.judge.api.dto.MyProblemSubmissionRecord
 import com.aandiclub.online.judge.api.dto.SubmissionAccepted
 import com.aandiclub.online.judge.api.dto.SubmissionRequest
 import com.aandiclub.online.judge.api.dto.SubmissionResult
@@ -22,8 +24,10 @@ import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import org.springframework.data.redis.listener.ChannelTopic
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
+import org.springframework.http.HttpStatus
 import org.springframework.http.codec.ServerSentEvent
 import org.springframework.stereotype.Service
+import org.springframework.web.server.ResponseStatusException
 import tools.jackson.databind.ObjectMapper
 
 @Service
@@ -38,8 +42,13 @@ class SubmissionService(
 ) {
     private val log = LoggerFactory.getLogger(SubmissionService::class.java)
 
-    suspend fun createSubmission(request: SubmissionRequest): SubmissionAccepted {
+    suspend fun createSubmission(
+        request: SubmissionRequest,
+        submitterId: String,
+    ): SubmissionAccepted {
         val submission = Submission(
+            submitterId = submitterId,
+            submitterPublicCode = request.publicCode,
             problemId = request.problemId,
             language = request.language,
             code = request.code,
@@ -71,8 +80,13 @@ class SubmissionService(
         )
     }
 
-    fun streamResults(submissionId: String): Flow<ServerSentEvent<String>> =
-        listenerContainer.receive(ChannelTopic.of("submission:$submissionId"))
+    suspend fun streamResults(
+        submissionId: String,
+        submitterId: String,
+        isAdmin: Boolean,
+    ): Flow<ServerSentEvent<String>> {
+        requireAuthorizedSubmission(submissionId, submitterId, isAdmin)
+        return listenerContainer.receive(ChannelTopic.of("submission:$submissionId"))
             .asFlow()
             .transformWhile { message ->
                 val payload = message.message
@@ -89,10 +103,14 @@ class SubmissionService(
                 )
                 event != "done" && event != "error"
             }
+    }
 
-    suspend fun getResult(submissionId: String): SubmissionResult? {
-        val submission = submissionRepository.findById(submissionId).awaitSingleOrNull()
-            ?: return null
+    suspend fun getResult(
+        submissionId: String,
+        submitterId: String,
+        isAdmin: Boolean,
+    ): SubmissionResult? {
+        val submission = requireAuthorizedSubmission(submissionId, submitterId, isAdmin)
         if (submission.status == SubmissionStatus.PENDING || submission.status == SubmissionStatus.RUNNING) {
             return null
         }
@@ -101,5 +119,56 @@ class SubmissionService(
             status = submission.status,
             testCases = submission.testCaseResults,
         )
+    }
+
+    suspend fun getProblemSubmissions(
+        problemId: String,
+        submitterId: String,
+    ): List<MyProblemSubmissionRecord> =
+        submissionRepository.findAllBySubmitterIdAndProblemIdOrderByCreatedAtDesc(submitterId, problemId)
+            .collectList()
+            .awaitSingle()
+            .map { submission ->
+                MyProblemSubmissionRecord(
+                    submissionId = submission.id,
+                    problemId = submission.problemId,
+                    language = submission.language,
+                    status = submission.status,
+                    testCases = submission.testCaseResults,
+                    createdAt = submission.createdAt,
+                    completedAt = submission.completedAt,
+                )
+            }
+
+    suspend fun getAllSubmissions(): List<AdminSubmissionRecord> =
+        submissionRepository.findAllByOrderByCreatedAtDesc()
+            .collectList()
+            .awaitSingle()
+            .map { submission ->
+                AdminSubmissionRecord(
+                    submissionId = submission.id,
+                    submitterId = submission.submitterId,
+                    submitterPublicCode = submission.submitterPublicCode,
+                    problemId = submission.problemId,
+                    language = submission.language,
+                    code = submission.code,
+                    status = submission.status,
+                    testCases = submission.testCaseResults,
+                    createdAt = submission.createdAt,
+                    completedAt = submission.completedAt,
+                )
+            }
+
+    private suspend fun requireAuthorizedSubmission(
+        submissionId: String,
+        submitterId: String,
+        isAdmin: Boolean,
+    ): Submission {
+        val submission = submissionRepository.findById(submissionId).awaitSingleOrNull()
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Submission not found")
+        if (!isAdmin && submission.submitterId != submitterId) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Submission does not belong to the requester")
+        }
+        return submission
     }
 }

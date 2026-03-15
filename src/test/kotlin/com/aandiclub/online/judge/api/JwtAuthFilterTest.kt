@@ -105,6 +105,8 @@ class JwtAuthFilterTest {
 
         assertEquals(1, chain.called)
         assertEquals(null, exchange.response.statusCode)
+        assertEquals("user-1", exchange.getAttribute<String>(JwtExchangeAttributes.SUBJECT))
+        assertEquals(setOf("ADMIN"), exchange.getAttribute<Set<String>>(JwtExchangeAttributes.ROLES))
     }
 
     @Test

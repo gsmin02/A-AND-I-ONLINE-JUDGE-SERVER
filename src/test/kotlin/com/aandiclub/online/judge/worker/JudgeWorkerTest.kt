@@ -36,7 +36,7 @@ class JudgeWorkerTest {
     private val problemCatalogProperties = ProblemCatalogProperties(
         items = mapOf(
             "quiz-101" to ProblemItem(
-                testCases = listOf(TestCase(caseId = 1, args = listOf(3, 5), expectedOutput = "8"))
+                testCases = quiz101Cases
             )
         )
     )
@@ -59,6 +59,8 @@ class JudgeWorkerTest {
     fun `execute publishes case result and done when accepted`() = runTest {
         val submission = Submission(
             id = "sub-1",
+            submitterId = "user-1",
+            submitterPublicCode = "A00123",
             problemId = "quiz-101",
             language = Language.PYTHON,
             code = "def solution(a,b): return a+b",
@@ -100,6 +102,8 @@ class JudgeWorkerTest {
     fun `execute marks wrong answer when output mismatches expected`() = runTest {
         val submission = Submission(
             id = "sub-2",
+            submitterId = "user-1",
+            submitterPublicCode = "A00123",
             problemId = "quiz-101",
             language = Language.PYTHON,
             code = "def solution(a,b): return a+b",
@@ -131,6 +135,8 @@ class JudgeWorkerTest {
     fun `execute marks runtime error when no test cases are provided`() = runTest {
         val submission = Submission(
             id = "sub-3",
+            submitterId = "user-1",
+            submitterPublicCode = "A00123",
             problemId = "unknown-problem",
             language = Language.PYTHON,
             code = "def solution(a,b): return a+b",
@@ -156,6 +162,8 @@ class JudgeWorkerTest {
     fun `execute marks memory limit exceeded when memory is over configured limit`() = runTest {
         val submission = Submission(
             id = "sub-4",
+            submitterId = "user-1",
+            submitterPublicCode = "A00123",
             problemId = "quiz-101",
             language = Language.PYTHON,
             code = "def solution(a,b): return a+b",
@@ -187,13 +195,15 @@ class JudgeWorkerTest {
     fun `execute loads test cases from problem catalog when cases are not provided`() = runTest {
         val submission = Submission(
             id = "sub-5",
+            submitterId = "user-1",
+            submitterPublicCode = "A00123",
             problemId = "quiz-101",
             language = Language.PYTHON,
             code = "def solution(a,b): return a+b",
         )
         coEvery { sandboxRunner.run(Language.PYTHON, any()) } returns SandboxOutput(
             status = TestCaseStatus.PASSED,
-            output = "8",
+            output = "0",
             error = null,
             timeMs = 1.0,
             memoryMb = 2.0,
@@ -203,7 +213,23 @@ class JudgeWorkerTest {
 
         judgeWorker.execute(submission)
 
-        coVerify(exactly = 1) { sandboxRunner.run(Language.PYTHON, SandboxInput(submission.code, listOf(3, 5))) }
-        assertEquals(SubmissionStatus.ACCEPTED, submission.status)
+        coVerify(exactly = 10) { sandboxRunner.run(Language.PYTHON, any()) }
+        assertEquals(SubmissionStatus.WRONG_ANSWER, submission.status)
+        assertEquals(10, submission.testCaseResults.size)
+    }
+
+    companion object {
+        private val quiz101Cases = listOf(
+            TestCase(caseId = 1, args = listOf(3, 5), expectedOutput = "8"),
+            TestCase(caseId = 2, args = listOf(10, 2), expectedOutput = "12"),
+            TestCase(caseId = 3, args = listOf(0, 0), expectedOutput = "0"),
+            TestCase(caseId = 4, args = listOf(-7, 4), expectedOutput = "-3"),
+            TestCase(caseId = 5, args = listOf(100, 250), expectedOutput = "350"),
+            TestCase(caseId = 6, args = listOf(1, -1), expectedOutput = "0"),
+            TestCase(caseId = 7, args = listOf(999, 1), expectedOutput = "1000"),
+            TestCase(caseId = 8, args = listOf(42, 58), expectedOutput = "100"),
+            TestCase(caseId = 9, args = listOf(-20, -22), expectedOutput = "-42"),
+            TestCase(caseId = 10, args = listOf(1234, 4321), expectedOutput = "5555"),
+        )
     }
 }

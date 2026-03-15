@@ -1,7 +1,7 @@
 package com.aandiclub.online.judge.api
 
 import com.aandiclub.online.judge.service.SubmissionService
-import io.mockk.every
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -30,7 +30,7 @@ class SubmissionControllerWebFluxTest {
             .event("done")
             .data("""{"event":"done","submissionId":"sub-1","overallStatus":"ACCEPTED"}""")
             .build()
-        every { submissionService.streamResults("sub-1") } returns flowOf(caseEvent, doneEvent)
+        coEvery { submissionService.streamResults("sub-1", "anonymous", false) } returns flowOf(caseEvent, doneEvent)
 
         val events = webTestClient.get()
             .uri("/v1/submissions/sub-1/stream")
@@ -59,7 +59,7 @@ class SubmissionControllerWebFluxTest {
             .event("done")
             .data("""{"event":"done","submissionId":"sub-2","overallStatus":"ACCEPTED"}""")
             .build()
-        every { submissionService.streamResults("sub-2") } returnsMany listOf(
+        coEvery { submissionService.streamResults("sub-2", "anonymous", false) } returnsMany listOf(
             flowOf(event, done),
             flowOf(event, done),
         )

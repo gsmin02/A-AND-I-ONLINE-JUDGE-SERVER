@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.server.ServerWebExchange
 
 @RestController
 @RequestMapping("/v1/submissions")
@@ -42,7 +43,7 @@ class SubmissionController(
     @PostMapping
     @Operation(
         summary = "Create a new submission",
-        description = "Validates and stores a submission, starts asynchronous judging, and returns a submissionId with an SSE stream URL.",
+        description = "Validates and stores a submission, starts asynchronous judging, and returns a submissionId with an SSE stream URL. Swagger UI includes ready-to-run examples for Python, Kotlin, and Dart using `quiz-101`.",
     )
     @ApiResponses(
         value = [
@@ -77,19 +78,33 @@ class SubmissionController(
                     schema = Schema(implementation = SubmissionRequest::class),
                     examples = [
                         ExampleObject(
+                            name = "python-sum",
+                            summary = "Python solution for quiz-101",
+                            value = """{"publicCode":"A00123","problemId":"quiz-101","language":"PYTHON","code":"def solution(a, b):\n    return a + b","options":{"realtimeFeedback":true}}""",
+                        ),
+                        ExampleObject(
                             name = "kotlin-sum",
-                            value = """{"problemId":"quiz-101","language":"KOTLIN","code":"fun main() {\n    val (a, b) = readln().split(\" \").map { it.toInt() }\n    println(a + b)\n}","options":{"realtimeFeedback":true}}""",
+                            summary = "Kotlin solution for quiz-101",
+                            value = """{"publicCode":"A00123","problemId":"quiz-101","language":"KOTLIN","code":"fun main() {\n    val (a, b) = readln().split(\" \").map { it.toInt() }\n    println(a + b)\n}","options":{"realtimeFeedback":true}}""",
+                        ),
+                        ExampleObject(
+                            name = "dart-sum",
+                            summary = "Dart solution for quiz-101",
+                            value = """{"publicCode":"A00123","problemId":"quiz-101","language":"DART","code":"int solution(int a, int b) => a + b;","options":{"realtimeFeedback":true}}""",
                         ),
                     ],
                 ),
             ],
         )
         @Valid @RequestBody request: SubmissionRequest,
+        exchange: ServerWebExchange,
     ): ResponseEntity<SubmissionAccepted> {
-        val accepted = submissionService.createSubmission(request)
+        val access = exchange.requestAccess()
+        val accepted = submissionService.createSubmission(request, access.submitterId)
         SubmissionMdc.withSubmissionId(accepted.submissionId) {
             log.info(
-                "Submission request accepted: problemId={}, language={}, streamUrl={}",
+                "Submission request accepted: submitterId={}, problemId={}, language={}, streamUrl={}",
+                access.submitterId,
                 request.problemId,
                 request.language,
                 accepted.streamUrl
@@ -102,7 +117,7 @@ class SubmissionController(
     @GetMapping("/{submissionId}/stream", produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
     @Operation(
         summary = "Stream live judge events",
-        description = "Subscribes to a text/event-stream feed for a submission. The stream emits `test_case_result`, `done`, and `error` events in real time.",
+        description = "Subscribes to a text/event-stream feed for a submission. The stream emits `test_case_result`, `done`, and `error` events in real time. In Swagger UI, create a submission first, copy the returned `submissionId`, and then call this endpoint.",
     )
     @ApiResponses(
         value = [
@@ -124,24 +139,26 @@ class SubmissionController(
             ApiResponse(responseCode = "401", description = "Missing or invalid Bearer JWT."),
         ],
     )
-    fun streamResults(
+    suspend fun streamResults(
         @Parameter(
             description = "Submission identifier returned by the create submission API.",
             example = "2af20dd4-04a5-4a6c-b3fa-6d9a9e5f9972",
         )
         @PathVariable submissionId: String,
+        exchange: ServerWebExchange,
     ): Flow<ServerSentEvent<String>> {
+        val access = exchange.requestAccess()
         SubmissionMdc.withSubmissionId(submissionId) {
             log.info("Submission stream subscribed")
         }
-        return submissionService.streamResults(submissionId)
+        return submissionService.streamResults(submissionId, access.submitterId, access.isAdmin)
     }
 
     // 동기 결과 조회 (realtime_feedback: false 또는 완료 후 폴링)
     @GetMapping("/{submissionId}")
     @Operation(
         summary = "Get final submission result",
-        description = "Returns the aggregated verdict and per-test-case results after judging completes. Returns 404 if the submission is unknown or still pending/running.",
+        description = "Returns the aggregated verdict and per-test-case results after judging completes. Returns 404 if the submission is unknown or still pending/running. In Swagger UI, submit first, then paste the returned `submissionId` here after the worker finishes.",
     )
     @ApiResponses(
         value = [
@@ -171,11 +188,13 @@ class SubmissionController(
             example = "2af20dd4-04a5-4a6c-b3fa-6d9a9e5f9972",
         )
         @PathVariable submissionId: String,
+        exchange: ServerWebExchange,
     ): ResponseEntity<SubmissionResult> {
+        val access = exchange.requestAccess()
         SubmissionMdc.withSubmissionId(submissionId) {
             log.debug("Submission result requested")
         }
-        val result = submissionService.getResult(submissionId)
+        val result = submissionService.getResult(submissionId, access.submitterId, access.isAdmin)
             ?: return ResponseEntity.notFound().build<SubmissionResult>().also {
                 SubmissionMdc.withSubmissionId(submissionId) {
                     log.debug("Submission result not ready")
