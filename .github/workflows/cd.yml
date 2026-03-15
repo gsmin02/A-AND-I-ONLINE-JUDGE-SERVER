@@ -166,9 +166,6 @@ jobs:
           encode_and_export MONGODB_PORT
           encode_and_export MONGODB_IMAGE
           encode_and_export MONGODB_CONTAINER_NAME
-          encode_and_export SANDBOX_IMAGE_PYTHON
-          encode_and_export SANDBOX_IMAGE_KOTLIN
-          encode_and_export SANDBOX_IMAGE_DART
           encode_and_export REDIS_PASSWORD
           encode_and_export JUDGE_PROBLEM_EVENTS_QUEUE_URL
 
@@ -241,9 +238,12 @@ jobs:
           REDIS_PASSWORD="$(decode_b64 "${REDIS_PASSWORD_B64:-}")"
           JUDGE_PROBLEM_EVENTS_QUEUE_URL="$(decode_b64 "${JUDGE_PROBLEM_EVENTS_QUEUE_URL_B64:-}")"
           APP_OPENAPI_SERVER_URL="$(decode_b64 "${APP_OPENAPI_SERVER_URL_B64:-}")"
-          SANDBOX_IMAGE_PYTHON="$(decode_b64 "${SANDBOX_IMAGE_PYTHON_B64:-}")"
-          SANDBOX_IMAGE_KOTLIN="$(decode_b64 "${SANDBOX_IMAGE_KOTLIN_B64:-}")"
-          SANDBOX_IMAGE_DART="$(decode_b64 "${SANDBOX_IMAGE_DART_B64:-}")"
+
+          # Auto-configure sandbox image URIs from ECR
+          ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          SANDBOX_IMAGE_PYTHON="${ECR_REGISTRY}/judge-sandbox-python:latest"
+          SANDBOX_IMAGE_KOTLIN="${ECR_REGISTRY}/judge-sandbox-kotlin:latest"
+          SANDBOX_IMAGE_DART="${ECR_REGISTRY}/judge-sandbox-dart:latest"
 
           app_env_keys=()
 
@@ -325,9 +325,6 @@ jobs:
           append_runtime_env "REDIS_PASSWORD" "${REDIS_PASSWORD}"
           append_runtime_env "JUDGE_PROBLEM_EVENTS_QUEUE_URL" "${JUDGE_PROBLEM_EVENTS_QUEUE_URL}"
           append_runtime_env "APP_OPENAPI_SERVER_URL" "${APP_OPENAPI_SERVER_URL}"
-          append_runtime_env "SANDBOX_IMAGE_PYTHON" "${SANDBOX_IMAGE_PYTHON}"
-          append_runtime_env "SANDBOX_IMAGE_KOTLIN" "${SANDBOX_IMAGE_KOTLIN}"
-          append_runtime_env "SANDBOX_IMAGE_DART" "${SANDBOX_IMAGE_DART}"
 
           if [[ -z "${IMAGE_URI:-}" ]]; then
             echo "IMAGE_URI is required"
@@ -422,9 +419,6 @@ jobs:
             compose_env_entry "REDIS_PORT" "${REDIS_PORT}"
             compose_env_entry "SPRING_DATA_REDIS_HOST" "${SPRING_DATA_REDIS_HOST}"
             compose_env_entry "SPRING_DATA_REDIS_PORT" "${SPRING_DATA_REDIS_PORT}"
-            compose_env_entry "SANDBOX_IMAGE_PYTHON" "judge-sandbox-python:latest"
-            compose_env_entry "SANDBOX_IMAGE_KOTLIN" "judge-sandbox-kotlin:latest"
-            compose_env_entry "SANDBOX_IMAGE_DART" "judge-sandbox-dart:latest"
             printf '%s\n' \
               'networks:' \
               '  app_net:'
