@@ -300,23 +300,52 @@ jobs:
           append_runtime_env "REDIS_PASSWORD" "${REDIS_PASSWORD}"
           append_runtime_env "JUDGE_PROBLEM_EVENTS_QUEUE_URL" "${JUDGE_PROBLEM_EVENTS_QUEUE_URL}"
 
+          if [[ -z "${IMAGE_URI:-}" ]]; then
+            echo "IMAGE_URI is required"
+            exit 1
+          fi
+
+          MONGODB_PORT="${MONGODB_PORT:-27017}"
+          MONGODB_IMAGE="${MONGODB_IMAGE:-mongo:8}"
+          MONGODB_CONTAINER_NAME="${MONGODB_CONTAINER_NAME:-judge-mongodb}"
+          REDIS_PORT="${REDIS_PORT:-6379}"
+          REDIS_IMAGE="${REDIS_IMAGE:-redis:7-alpine}"
+          REDIS_CONTAINER_NAME="${REDIS_CONTAINER_NAME:-judge-redis}"
           APP_DOCKER_NETWORK="${AWS_APP_NETWORK:-online-judge-net}"
-          export APP_DOCKER_NETWORK IMAGE_URI
-          export AWS_CONTAINER_NAME AWS_APP_PORT
+          AWS_CONTAINER_NAME="${AWS_CONTAINER_NAME:-online-judge}"
+          AWS_APP_PORT="${AWS_APP_PORT:-8080}"
+          MONGODB_URI="${MONGODB_URI:-mongodb://${MONGODB_USER}:${MONGODB_PASSWORD}@mongodb:27017/${MONGODB_DATABASE}?authSource=admin}"
+          SPRING_DATA_MONGODB_URI="${SPRING_DATA_MONGODB_URI:-${MONGODB_URI}}"
+          REDIS_HOST="${REDIS_HOST:-redis}"
+          SPRING_DATA_REDIS_HOST="${SPRING_DATA_REDIS_HOST:-${REDIS_HOST}}"
+          SPRING_DATA_REDIS_PORT="${SPRING_DATA_REDIS_PORT:-${REDIS_PORT}}"
+
+          yaml_quote() {
+            printf "'%s'" "$(printf "%s" "${1:-}" | sed "s/'/'\"'\"'/g")"
+          }
+
+          compose_env_entry() {
+            local key="$1"
+            local value="${2:-}"
+            printf '      - %s\n' "$(yaml_quote "${key}=${value}")"
+          }
 
           {
             printf '%s\n' \
               'services:' \
-              '  mongodb:' \
-              '    image: ${MONGODB_IMAGE:-mongo:8}' \
-              '    container_name: ${MONGODB_CONTAINER_NAME:-judge-mongodb}' \
+              '  mongodb:'
+            printf '    image: %s\n' "$(yaml_quote "${MONGODB_IMAGE}")"
+            printf '    container_name: %s\n' "$(yaml_quote "${MONGODB_CONTAINER_NAME}")"
+            printf '%s\n' \
               '    restart: unless-stopped' \
-              '    ports:' \
-              '      - "${MONGODB_PORT:-27017}:27017"' \
-              '    environment:' \
-              '      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER}' \
-              '      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}' \
-              '      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE}' \
+              '    ports:'
+            printf '      - %s\n' "$(yaml_quote "${MONGODB_PORT}:27017")"
+            printf '%s\n' \
+              '    environment:'
+            printf '      MONGO_INITDB_ROOT_USERNAME: %s\n' "$(yaml_quote "${MONGODB_USER}")"
+            printf '      MONGO_INITDB_ROOT_PASSWORD: %s\n' "$(yaml_quote "${MONGODB_PASSWORD}")"
+            printf '      MONGO_INITDB_DATABASE: %s\n' "$(yaml_quote "${MONGODB_DATABASE}")"
+            printf '%s\n' \
               '    volumes:' \
               '      - mongo_data:/data/db' \
               '    networks:' \
@@ -327,12 +356,14 @@ jobs:
               '      timeout: 5s' \
               '      retries: 5' \
               '' \
-              '  redis:' \
-              '    image: ${REDIS_IMAGE:-redis:7-alpine}' \
-              '    container_name: ${REDIS_CONTAINER_NAME:-judge-redis}' \
+              '  redis:'
+            printf '    image: %s\n' "$(yaml_quote "${REDIS_IMAGE}")"
+            printf '    container_name: %s\n' "$(yaml_quote "${REDIS_CONTAINER_NAME}")"
+            printf '%s\n' \
               '    restart: unless-stopped' \
-              '    ports:' \
-              '      - "${REDIS_PORT:-6379}:6379"' \
+              '    ports:'
+            printf '      - %s\n' "$(yaml_quote "${REDIS_PORT}:6379")"
+            printf '%s\n' \
               '    networks:' \
               '      - app_net' \
               '    healthcheck:' \
@@ -341,31 +372,33 @@ jobs:
               '      timeout: 5s' \
               '      retries: 5' \
               '' \
-              '  app:' \
-              '    image: ${IMAGE_URI}' \
-              '    container_name: ${AWS_CONTAINER_NAME}' \
+              '  app:'
+            printf '    image: %s\n' "$(yaml_quote "${IMAGE_URI}")"
+            printf '    container_name: %s\n' "$(yaml_quote "${AWS_CONTAINER_NAME}")"
+            printf '%s\n' \
               '    restart: unless-stopped' \
-              '    ports:' \
-              '      - "${AWS_APP_PORT}:8080"' \
+              '    ports:'
+            printf '      - %s\n' "$(yaml_quote "${AWS_APP_PORT}:8080")"
+            printf '%s\n' \
               '    networks:' \
               '      - app_net' \
               '    volumes:' \
               '      - /var/run/docker.sock:/var/run/docker.sock' \
               '    environment:'
             for key in "${app_env_keys[@]}"; do
-              printf '      - %s=${%s}\n' "${key}" "${key}"
+              compose_env_entry "${key}" "${!key}"
             done
-            printf '%s\n' \
-              '      - MONGODB_URI=${MONGODB_URI:-mongodb://${MONGODB_USER}:${MONGODB_PASSWORD}@mongodb:27017/${MONGODB_DATABASE}?authSource=admin}' \
-              '      - SPRING_DATA_MONGODB_URI=${SPRING_DATA_MONGODB_URI:-mongodb://${MONGODB_USER}:${MONGODB_PASSWORD}@mongodb:27017/${MONGODB_DATABASE}?authSource=admin}' \
-              '      - REDIS_HOST=${REDIS_HOST:-redis}' \
-              '      - REDIS_PORT=${REDIS_PORT:-6379}' \
-              '      - SPRING_DATA_REDIS_HOST=${SPRING_DATA_REDIS_HOST:-redis}' \
-              '      - SPRING_DATA_REDIS_PORT=${SPRING_DATA_REDIS_PORT:-6379}'
+            compose_env_entry "MONGODB_URI" "${MONGODB_URI}"
+            compose_env_entry "SPRING_DATA_MONGODB_URI" "${SPRING_DATA_MONGODB_URI}"
+            compose_env_entry "REDIS_HOST" "${REDIS_HOST}"
+            compose_env_entry "REDIS_PORT" "${REDIS_PORT}"
+            compose_env_entry "SPRING_DATA_REDIS_HOST" "${SPRING_DATA_REDIS_HOST}"
+            compose_env_entry "SPRING_DATA_REDIS_PORT" "${SPRING_DATA_REDIS_PORT}"
             printf '%s\n' \
               'networks:' \
-              '  app_net:' \
-              '    name: ${APP_DOCKER_NETWORK}' \
+              '  app_net:'
+            printf '    name: %s\n' "$(yaml_quote "${APP_DOCKER_NETWORK}")"
+            printf '%s\n' \
               '' \
               'volumes:' \
               '  mongo_data:'

@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration
 
 @ConfigurationProperties(prefix = "app.openapi")
 data class OpenApiProperties(
-    val serverUrl: String = "https://api.aandiclub.com",
+    val serverUrl: String = "",
 )
 
 @Configuration

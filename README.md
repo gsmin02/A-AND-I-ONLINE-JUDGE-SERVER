@@ -308,6 +308,8 @@ SANDBOX_IMAGE_DART=<ACCOUNT>.dkr.ecr.<REGION>.amazonaws.com/judge-sandbox-dart:l
 
 `APP_ENV_VARS`와 개별 앱 Secret 값들은 배포 시 Docker Compose 환경변수로 직접 주입됩니다. (`.env` 파일 생성 없음)
 
+Swagger UI의 "Try it out" 요청을 현재 접속한 호스트로 보내려면 `APP_OPENAPI_SERVER_URL`을 비워두세요. 특정 공개 도메인으로 고정하고 싶을 때만 `APP_OPENAPI_SERVER_URL=https://...` 를 설정합니다.
+
 배포 시 EC2에서 `${AWS_APP_DIR}/docker-compose.yml`를 동적으로 생성하고, `mongodb` + `app` 서비스를 `docker compose up -d`로 기동합니다. 앱 컨테이너는 동일 네트워크(`AWS_APP_NETWORK`)로 실행됩니다.
 
 ### 6) 배포 실행
