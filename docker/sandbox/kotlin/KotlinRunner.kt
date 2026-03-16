@@ -2,6 +2,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
+private const val KOTLIN_LIB_CLASSPATH = "/opt/kotlinc/lib/*"
+
 fun main() {
     val raw = System.`in`.bufferedReader().readText()
 
@@ -22,10 +24,18 @@ fun main() {
 
     sourceFile.writeText(buildSolutionSource(code, argsLiteral, resultFile.absolutePath))
 
-    // Compile user code into a JAR
+    val solutionJar = File(tmpDir, "solution.jar")
+
+    // Invoke the compiler directly to avoid kotlinc's default 512M heap,
+    // which is too large for the sandbox container memory limit.
     val compileProc = ProcessBuilder(
-        "kotlinc", sourceFile.absolutePath,
-        "-include-runtime", "-d", File(tmpDir, "solution.jar").absolutePath
+        "java",
+        "-Xms32m",
+        "-Xmx128m",
+        "-cp", KOTLIN_LIB_CLASSPATH,
+        "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler",
+        sourceFile.absolutePath,
+        "-d", solutionJar.absolutePath,
     ).redirectErrorStream(true).start()
 
     val compileOut = compileProc.inputStream.bufferedReader().readText()
@@ -38,8 +48,12 @@ fun main() {
         return
     }
 
-    // Run the compiled JAR (java reads JAR as data — safe with noexec tmpfs)
-    ProcessBuilder("java", "-jar", File(tmpDir, "solution.jar").absolutePath)
+    // Run the compiled program with the Kotlin runtime on the classpath.
+    ProcessBuilder(
+        "java",
+        "-cp", "${solutionJar.absolutePath}:$KOTLIN_LIB_CLASSPATH",
+        "SolutionKt",
+    )
         .redirectErrorStream(true)
         .start()
         .waitFor()
