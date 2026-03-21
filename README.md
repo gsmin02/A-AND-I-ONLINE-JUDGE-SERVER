@@ -32,8 +32,11 @@ cp .env.example .env
 - `JUDGE_JWT_AUTH_ENABLED`, `JUDGE_JWT_AUTH_SIGNING_KEY`, `JUDGE_JWT_AUTH_REQUIRED_ROLE`, `JUDGE_JWT_AUTH_ALLOW_WITHOUT_ROLE_CLAIM`
 - `JUDGE_RATE_LIMIT_ENABLED`, `JUDGE_RATE_LIMIT_SUBMIT_REQUESTS`, `JUDGE_RATE_LIMIT_WINDOW_SECONDS`
 - `JUDGE_WORKER_MAX_CONCURRENCY`
-- `JUDGE_PROBLEM_EVENTS_ENABLED`, `JUDGE_PROBLEM_EVENTS_QUEUE_URL`
+- `JUDGE_PROBLEM_EVENTS_ENABLED`, `REPORTS_TESTCASES_EVENTS_QUEUE_URL`
 - `JUDGE_PROBLEM_EVENTS_WAIT_TIME_SECONDS`, `JUDGE_PROBLEM_EVENTS_MAX_MESSAGES`
+- `JUDGE_PROBLEM_EVENTS_PUBLISH_ENABLED`, `JUDGE_PROBLEM_EVENTS_TOPIC_ARN`
+- `JUDGE_USER_EVENTS_ENABLED`, `JUDGE_USER_EVENTS_QUEUE_URL`
+- `JUDGE_USER_EVENTS_WAIT_TIME_SECONDS`, `JUDGE_USER_EVENTS_MAX_MESSAGES`
 - `SANDBOX_TIME_LIMIT_SECONDS`, `SANDBOX_MEMORY_LIMIT_MB`, `SANDBOX_CPU_LIMIT`, `SANDBOX_PIDS_LIMIT`
 - `SANDBOX_IMAGE_PYTHON`, `SANDBOX_IMAGE_KOTLIN`, `SANDBOX_IMAGE_DART`
 
@@ -50,6 +53,8 @@ cp .env.example .env
 
 문제 생성/수정 이벤트를 SQS로 전달하면, 서버가 `problemId(UUID)` 기준으로 테스트 케이스를 MongoDB `problems` 컬렉션에 upsert 합니다.
 
+### 이벤트 소비 (Consumer)
+
 필수 필드:
 - `problemId` (문제 UUID 문자열)
 - `testCases` (배열)
@@ -57,7 +62,38 @@ cp .env.example .env
 - `testCases[].output` (기대 출력값, 문자열 권장)
 
 선택 필드:
+- `eventType` (이벤트 타입, 필터링에 사용)
 - `testCases[].caseId` (없으면 1부터 자동 부여)
+
+### 이벤트 필터링
+
+서버는 다음 `eventType`만 처리합니다:
+- `PROBLEM_CREATED` - 새 문제 생성
+- `PROBLEM_UPDATED` - 문제 수정
+- `TEST_CASE_UPDATED` - 테스트 케이스 갱신
+
+기타 이벤트 타입(`PROBLEM_DELETED`, `PROBLEM_ARCHIVED` 등)은 무시됩니다.
+`eventType` 필드가 없는 레거시 메시지는 하위 호환성을 위해 처리됩니다.
+
+### 이벤트 발행 (Publisher)
+
+테스트 케이스가 성공적으로 갱신되면, 서버는 SNS로 알림 이벤트를 발행합니다.
+
+활성화 조건:
+- `JUDGE_PROBLEM_EVENTS_PUBLISH_ENABLED=true`
+- `JUDGE_PROBLEM_EVENTS_TOPIC_ARN` 설정 필수
+
+발행되는 이벤트 포맷:
+```json
+{
+  "eventType": "TEST_CASE_UPDATED",
+  "problemId": "7fbe8f62-9d89-4c74-b1e4-3ad3b9d7f001",
+  "testCaseCount": 10,
+  "timestamp": "2026-03-18T10:30:45.123Z"
+}
+```
+
+이 이벤트를 구독하여 다른 서비스(캐시 무효화, 알림 전송 등)에서 활용할 수 있습니다.
 
 ### 1) Plain JSON 메시지 예시 (SQS Body)
 ```json
@@ -84,7 +120,7 @@ cp .env.example .env
 주의:
 - 동일 `problemId`로 메시지를 다시 보내면 기존 테스트 케이스를 새 배열로 덮어씁니다.
 - 해당 `problemId`가 아직 없으면 `problems` 컬렉션에 새 문서를 생성합니다.
-- 컨슈머 동작 조건: `JUDGE_PROBLEM_EVENTS_ENABLED=true` 그리고 `JUDGE_PROBLEM_EVENTS_QUEUE_URL` 설정.
+- 컨슈머 동작 조건: `JUDGE_PROBLEM_EVENTS_ENABLED=true` 그리고 `REPORTS_TESTCASES_EVENTS_QUEUE_URL` 설정.
 
 ## Health Check
 
@@ -264,10 +300,17 @@ EC2 서버 사전 설치:
 3. Queue를 SNS Topic에 구독 연결
 4. SQS Queue Policy에서 해당 SNS Topic publish 허용
 
-애플리케이션 환경변수:
-- `JUDGE_PROBLEM_EVENTS_ENABLED=true`
-- `JUDGE_PROBLEM_EVENTS_QUEUE_URL=<SQS_QUEUE_URL>`
+애플리케이션 환경변수 (Problem 이벤트):
+- `JUDGE_PROBLEM_EVENTS_ENABLED=true` (이벤트 소비 활성화)
+- `REPORTS_TESTCASES_EVENTS_QUEUE_URL=<SQS_QUEUE_URL>` (SQS 큐 URL)
 - (선택) `JUDGE_PROBLEM_EVENTS_WAIT_TIME_SECONDS`, `JUDGE_PROBLEM_EVENTS_MAX_MESSAGES`
+- `JUDGE_PROBLEM_EVENTS_PUBLISH_ENABLED=true` (이벤트 발행 활성화)
+- `JUDGE_PROBLEM_EVENTS_TOPIC_ARN=<SNS_TOPIC_ARN>` (SNS 토픽 ARN)
+
+애플리케이션 환경변수 (User 이벤트):
+- `JUDGE_USER_EVENTS_ENABLED=true` (User 이벤트 소비 활성화)
+- `JUDGE_USER_EVENTS_QUEUE_URL=<SQS_QUEUE_URL>` (User 이벤트 SQS 큐 URL, 예: online-judge-user-events-queue)
+- (선택) `JUDGE_USER_EVENTS_WAIT_TIME_SECONDS`, `JUDGE_USER_EVENTS_MAX_MESSAGES`
 
 ### 5) GitHub Secrets 설정
 
@@ -294,7 +337,9 @@ EC2 서버 사전 설치:
 - `MONGODB_IMAGE` (선택, 기본 `mongo:8`)
 - `MONGODB_CONTAINER_NAME` (선택, 기본 `judge-mongodb`)
 - `REDIS_PASSWORD` (선택)
-- `JUDGE_PROBLEM_EVENTS_QUEUE_URL` (선택)
+- `REPORTS_TESTCASES_EVENTS_QUEUE_URL` (선택, Problem 이벤트 소비용)
+- `JUDGE_PROBLEM_EVENTS_TOPIC_ARN` (선택, 이벤트 발행용)
+- `JUDGE_USER_EVENTS_QUEUE_URL` (선택, User 이벤트 소비용)
 
 `APP_ENV_VARS` 예시:
 ```env

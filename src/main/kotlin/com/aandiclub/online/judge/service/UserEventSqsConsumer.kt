@@ -1,6 +1,6 @@
 package com.aandiclub.online.judge.service
 
-import com.aandiclub.online.judge.config.ProblemEventProperties
+import com.aandiclub.online.judge.config.UserEventProperties
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -15,34 +15,34 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 @Component
-@ConditionalOnProperty(prefix = "judge.problem-events", name = ["enabled"], havingValue = "true")
-class ProblemEventSqsConsumer(
-    private val problemEventSqsClient: SqsClient,
-    private val properties: ProblemEventProperties,
-    private val problemEventSyncService: ProblemEventSyncService,
+@ConditionalOnProperty(prefix = "judge.user-events", name = ["enabled"], havingValue = "true")
+class UserEventSqsConsumer(
+    private val userEventSqsClient: SqsClient,
+    private val properties: UserEventProperties,
+    private val userEventSyncService: UserEventSyncService,
 ) : SmartLifecycle {
-    private val sqsClient = problemEventSqsClient
-    private val log = LoggerFactory.getLogger(ProblemEventSqsConsumer::class.java)
+    private val sqsClient = userEventSqsClient
+    private val log = LoggerFactory.getLogger(UserEventSqsConsumer::class.java)
     private val running = AtomicBoolean(false)
     private val executor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "problem-event-sqs-consumer").apply { isDaemon = true }
+        Thread(runnable, "user-event-sqs-consumer").apply { isDaemon = true }
     }
 
     override fun start() {
         if (properties.queueUrl.isBlank()) {
-            log.warn("Problem event SQS consumer disabled: queueUrl is blank")
+            log.warn("User event SQS consumer disabled: queueUrl is blank")
             return
         }
         if (!running.compareAndSet(false, true)) return
         executor.submit { pollLoop() }
-        log.info("Problem event SQS consumer started")
+        log.info("User event SQS consumer started")
     }
 
     override fun stop() {
         running.set(false)
         executor.shutdownNow()
         executor.awaitTermination(3, TimeUnit.SECONDS)
-        log.info("Problem event SQS consumer stopped")
+        log.info("User event SQS consumer stopped")
     }
 
     override fun isRunning(): Boolean = running.get()
@@ -97,7 +97,7 @@ class ProblemEventSqsConsumer(
 
     private fun handleMessage(rawBody: String): Boolean {
         return runBlocking {
-            val outcome = problemEventSyncService.sync(rawBody)
+            val outcome = userEventSyncService.sync(rawBody)
             // Always ACK to prevent reprocessing
             true
         }
