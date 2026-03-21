@@ -1,6 +1,7 @@
 package com.aandiclub.online.judge.service
 
 import com.aandiclub.online.judge.domain.User
+import com.aandiclub.online.judge.repository.SubmissionRepository
 import com.aandiclub.online.judge.repository.UserRepository
 import io.mockk.every
 import io.mockk.mockk
@@ -8,17 +9,26 @@ import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate
 import reactor.core.publisher.Mono
 import tools.jackson.databind.ObjectMapper
 
 class UserEventSyncServiceTest {
     private val userRepository = mockk<UserRepository>()
+    private val submissionRepository = mockk<SubmissionRepository>()
+    private val mongoTemplate = mockk<ReactiveMongoTemplate>()
     private val objectMapper = ObjectMapper()
-    private val service = UserEventSyncService(userRepository, objectMapper)
+    private val service = UserEventSyncService(
+        userRepository,
+        submissionRepository,
+        mongoTemplate,
+        objectMapper
+    )
 
     @Test
     fun `sync upserts user profile from SNS envelope`() = runTest {
         val savedSlot = slot<User>()
+        every { userRepository.findById(any<String>()) } returns Mono.empty()
         every { userRepository.save(capture(savedSlot)) } answers { Mono.just(firstArg()) }
 
         val raw = """
@@ -45,6 +55,7 @@ class UserEventSyncServiceTest {
 
     @Test
     fun `sync processes UserProfileUpdated event`() = runTest {
+        every { userRepository.findById(any<String>()) } returns Mono.empty()
         every { userRepository.save(any()) } answers { Mono.just(firstArg()) }
 
         val raw = """

@@ -48,8 +48,11 @@ class SubmissionServiceTest {
     private val objectMapper = ObjectMapper()
     private val submissionProperties = com.aandiclub.online.judge.config.SubmissionProperties(dedupTtlMinutes = 5)
 
+    private val userRepository = mockk<com.aandiclub.online.judge.repository.UserRepository>(relaxed = true)
+
     private val service = SubmissionService(
         submissionRepository,
+        userRepository,
         redisTemplate,
         listenerContainer,
         judgeWorker,
@@ -61,6 +64,13 @@ class SubmissionServiceTest {
 
     @Test
     fun `createSubmission saves submitter identity and returns SubmissionAccepted`() = runTest {
+        val mockUser = com.aandiclub.online.judge.domain.User(
+            userId = "user-1",
+            publicCode = "A00123",
+            username = "testuser"
+        )
+        every { userRepository.findByPublicCode("A00123") } returns Mono.just(mockUser)
+
         val request = SubmissionRequest(
             publicCode = "A00123",
             problemId = "quiz-101",
@@ -304,6 +314,13 @@ class SubmissionServiceTest {
 
     @Test
     fun `createSubmission returns cached submission for duplicate within 5 minutes`() = runTest {
+        val mockUser = com.aandiclub.online.judge.domain.User(
+            userId = "user-1",
+            publicCode = "A00123",
+            username = "testuser"
+        )
+        every { userRepository.findByPublicCode("A00123") } returns Mono.just(mockUser)
+
         val request = SubmissionRequest(
             publicCode = "A00123",
             problemId = "quiz-101",
@@ -326,6 +343,13 @@ class SubmissionServiceTest {
 
     @Test
     fun `createSubmission creates new submission and caches when no duplicate exists`() = runTest {
+        val mockUser = com.aandiclub.online.judge.domain.User(
+            userId = "user-1",
+            publicCode = "A00123",
+            username = "testuser"
+        )
+        every { userRepository.findByPublicCode("A00123") } returns Mono.just(mockUser)
+
         val request = SubmissionRequest(
             publicCode = "A00123",
             problemId = "quiz-101",
