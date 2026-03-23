@@ -43,6 +43,8 @@ import tools.jackson.databind.ObjectMapper
     properties = [
         "judge.rate-limit.enabled=false",
         "judge.jwt-auth.enabled=false",
+        "judge.user-events.enabled=false",
+        "judge.problem-events.enabled=false",
     ],
 )
 class SubmissionWorkflowE2ETest {
