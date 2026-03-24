@@ -18,7 +18,7 @@ data class SandboxInput(
 
 data class SandboxOutput(
     val status: TestCaseStatus,
-    val output: String?,
+    val output: Any?,
     val error: String?,
     val timeMs: Double,
     val memoryMb: Double,
@@ -26,7 +26,7 @@ data class SandboxOutput(
 
 /** Internal DTO for deserializing the runner's stdout JSON. */
 private data class RunnerResult(
-    val output: String?,
+    val output: Any?,
     val error: String?,
     val timeMs: Double = 0.0,
     val memoryMb: Double = 0.0,

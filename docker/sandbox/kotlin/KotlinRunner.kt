@@ -59,22 +59,22 @@ fun main() {
         .waitFor()
 
     // Read result written by the compiled solution
-    val lines = if (resultFile.exists()) resultFile.readLines() else emptyList()
+    val resultPayload = if (resultFile.exists()) JSONObject(resultFile.readText()) else null
     tmpDir.deleteRecursively()
 
-    val status = lines.getOrElse(0) { "RUNTIME_ERROR" }
-    val value = lines.getOrElse(1) { "no output" }
-    val timeMs = lines.getOrElse(2) { "0.0" }.toDoubleOrNull() ?: 0.0
+    val status = resultPayload?.optString("status") ?: "RUNTIME_ERROR"
+    val timeMs = resultPayload?.optDouble("timeMs") ?: 0.0
 
     if (status == "OK") {
+        val output = resultPayload?.opt("output")
         println(JSONObject()
-            .put("output", value)
+            .put("output", if (output == null || output == JSONObject.NULL) JSONObject.NULL else output)
             .put("error", JSONObject.NULL)
             .put("timeMs", timeMs)
             .put("memoryMb", 0.0)
             .toString())
     } else {
-        println(buildErrorJson("$status: $value", timeMs))
+        println(buildErrorJson("$status: ${resultPayload?.optString("error") ?: "no output"}", timeMs))
     }
 }
 
@@ -90,6 +90,29 @@ fun buildArgsLiteral(argsJson: JSONArray): String =
 fun buildSolutionSource(code: String, argsLiteral: String, resultFilePath: String): String {
     val safeResultPath = resultFilePath.replace("\\", "\\\\").replace("\"", "\\\"")
     return "import java.io.File\n\n" +
+        "fun __judgeQuoteJson(value: String): String = buildString {\n" +
+        "    append('\"')\n" +
+        "    value.forEach { ch ->\n" +
+        "        when (ch) {\n" +
+        "            '\\\\' -> append(\"\\\\\\\\\")\n" +
+        "            '\"' -> append(\"\\\\\\\"\")\n" +
+        "            '\\n' -> append(\"\\\\n\")\n" +
+        "            '\\r' -> append(\"\\\\r\")\n" +
+        "            '\\t' -> append(\"\\\\t\")\n" +
+        "            else -> append(ch)\n" +
+        "        }\n" +
+        "    }\n" +
+        "    append('\"')\n" +
+        "}\n\n" +
+        "fun __judgeToJsonLiteral(value: Any?): String = when (value) {\n" +
+        "    null -> \"null\"\n" +
+        "    is String -> __judgeQuoteJson(value)\n" +
+        "    is Number, is Boolean -> value.toString()\n" +
+        "    is Array<*> -> value.joinToString(prefix = \"[\", postfix = \"]\") { __judgeToJsonLiteral(it) }\n" +
+        "    is Iterable<*> -> value.joinToString(prefix = \"[\", postfix = \"]\") { __judgeToJsonLiteral(it) }\n" +
+        "    is Map<*, *> -> value.entries.joinToString(prefix = \"{\", postfix = \"}\") { entry -> __judgeQuoteJson(entry.key.toString()) + \":\" + __judgeToJsonLiteral(entry.value) }\n" +
+        "    else -> __judgeQuoteJson(value.toString())\n" +
+        "}\n\n" +
         code + "\n\n" +
         "fun main() {\n" +
         "    val resultFile = File(\"$safeResultPath\")\n" +
@@ -97,10 +120,10 @@ fun buildSolutionSource(code: String, argsLiteral: String, resultFilePath: Strin
         "    try {\n" +
         "        val result = solution($argsLiteral)\n" +
         "        val ms = (System.nanoTime() - t0) / 1_000_000.0\n" +
-        "        resultFile.writeText(\"OK\\n\" + result.toString() + \"\\n\" + ms)\n" +
+        "        resultFile.writeText(\"{\\\"status\\\":\\\"OK\\\",\\\"output\\\":\" + __judgeToJsonLiteral(result) + \",\\\"timeMs\\\":\" + ms + \"}\")\n" +
         "    } catch (e: Exception) {\n" +
         "        val ms = (System.nanoTime() - t0) / 1_000_000.0\n" +
-        "        resultFile.writeText(\"RUNTIME_ERROR\\n\" + (e.message ?: \"unknown error\") + \"\\n\" + ms)\n" +
+        "        resultFile.writeText(\"{\\\"status\\\":\\\"RUNTIME_ERROR\\\",\\\"error\\\":\" + __judgeQuoteJson(e.message ?: \"unknown error\") + \",\\\"timeMs\\\":\" + ms + \"}\")\n" +
         "    }\n" +
         "}\n"
 }

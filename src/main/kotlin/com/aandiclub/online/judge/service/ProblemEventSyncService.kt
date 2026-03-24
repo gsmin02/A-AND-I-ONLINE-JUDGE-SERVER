@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
+import kotlin.text.Regex
 
 enum class ProblemEventSyncOutcome {
     UPSERTED,
@@ -50,7 +51,7 @@ class ProblemEventSyncService(
 
         val testCases = testCasesNode.mapIndexedNotNull { idx, testCaseNode ->
             val outputNode = findFirst(testCaseNode, "expectedOutput", "expected_output", "output", "expected")
-            val expectedOutput = nodeToOutput(outputNode) ?: return@mapIndexedNotNull null
+            val expectedOutput = nodeToValue(outputNode) ?: return@mapIndexedNotNull null
 
             val caseId = findFirst(testCaseNode, "caseId", "case_id")?.asInt(idx + 1) ?: (idx + 1)
             val argsNode = findFirst(testCaseNode, "args", "input", "inputs")
@@ -111,15 +112,51 @@ class ProblemEventSyncService(
     private fun nodeToArgs(node: JsonNode?): List<Any?> {
         if (node == null || node.isNull) return emptyList()
         return if (node.isArray) {
-            @Suppress("UNCHECKED_CAST")
-            objectMapper.readValue(node.toString(), List::class.java) as List<Any?>
+            node.map { nodeToValue(it) }
         } else {
-            listOf(objectMapper.convertValue(node, Any::class.java))
+            listOf(nodeToValue(node))
         }
     }
 
-    private fun nodeToOutput(node: JsonNode?): String? {
+    private fun nodeToValue(node: JsonNode?): Any? {
         if (node == null || node.isNull) return null
-        return if (node.isValueNode) node.asText() else node.toString()
+        return when {
+            node.isObject -> buildMap {
+                val fields = node.properties()
+                fields.forEach { (key, value) -> put(key, nodeToValue(value)) }
+            }
+            node.isArray -> node.map { nodeToValue(it) }
+            node.isTextual -> inferTextValue(node.asText())
+            node.isBoolean -> node.booleanValue()
+            node.isIntegralNumber -> node.longValue().let { if (it in Int.MIN_VALUE..Int.MAX_VALUE) it.toInt() else it }
+            node.isFloatingPointNumber -> node.doubleValue()
+            else -> objectMapper.convertValue(node, Any::class.java)
+        }
+    }
+
+    private fun inferTextValue(raw: String): Any? {
+        val value = raw.trim()
+        if (value.isEmpty()) return raw
+
+        if (value.equals("null", ignoreCase = true)) return null
+        if (value.equals("true", ignoreCase = true)) return true
+        if (value.equals("false", ignoreCase = true)) return false
+        if (INTEGER_PATTERN.matches(value)) {
+            return value.toLongOrNull()?.let { if (it in Int.MIN_VALUE..Int.MAX_VALUE) it.toInt() else it } ?: raw
+        }
+        if (DECIMAL_PATTERN.matches(value)) {
+            return value.toDoubleOrNull() ?: raw
+        }
+        if ((value.startsWith("[") && value.endsWith("]")) || (value.startsWith("{") && value.endsWith("}"))) {
+            val parsed = runCatching { objectMapper.readTree(value) }.getOrNull()
+            if (parsed != null) return nodeToValue(parsed)
+        }
+
+        return raw
+    }
+
+    companion object {
+        private val INTEGER_PATTERN = Regex("^-?(0|[1-9][0-9]*)$")
+        private val DECIMAL_PATTERN = Regex("^-?(?:0|[1-9][0-9]*)\\.[0-9]+(?:[eE][+-]?[0-9]+)?$|^-?(?:0|[1-9][0-9]*)(?:[eE][+-]?[0-9]+)$")
     }
 }

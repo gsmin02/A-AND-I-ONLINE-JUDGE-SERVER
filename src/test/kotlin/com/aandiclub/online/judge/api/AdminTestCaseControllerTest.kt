@@ -1,7 +1,7 @@
 package com.aandiclub.online.judge.api
 
+import com.aandiclub.online.judge.api.dto.AdminTestCaseRecord
 import com.aandiclub.online.judge.api.dto.ProblemTestCaseRecord
-import com.aandiclub.online.judge.domain.TestCase
 import com.aandiclub.online.judge.service.ProblemService
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -21,15 +21,19 @@ class AdminTestCaseControllerTest {
             ProblemTestCaseRecord(
                 problemId = "quiz-101",
                 testCases = listOf(
-                    TestCase(
+                    AdminTestCaseRecord(
                         caseId = 1,
                         args = listOf(3, 5),
-                        expectedOutput = "8",
+                        argTypes = listOf("INTEGER", "INTEGER"),
+                        expectedOutput = 8,
+                        expectedOutputType = "INTEGER",
                     ),
-                    TestCase(
+                    AdminTestCaseRecord(
                         caseId = 2,
                         args = listOf(10, 20),
-                        expectedOutput = "30",
+                        argTypes = listOf("INTEGER", "INTEGER"),
+                        expectedOutput = 30,
+                        expectedOutputType = "INTEGER",
                     ),
                 ),
                 updatedAt = Instant.parse("2026-03-15T10:00:00Z"),
@@ -37,10 +41,12 @@ class AdminTestCaseControllerTest {
             ProblemTestCaseRecord(
                 problemId = "quiz-102",
                 testCases = listOf(
-                    TestCase(
+                    AdminTestCaseRecord(
                         caseId = 1,
                         args = listOf("hello"),
+                        argTypes = listOf("STRING"),
                         expectedOutput = "HELLO",
+                        expectedOutputType = "STRING",
                     ),
                 ),
                 updatedAt = Instant.parse("2026-03-15T11:00:00Z"),

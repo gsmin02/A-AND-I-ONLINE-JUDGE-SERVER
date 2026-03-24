@@ -15,8 +15,8 @@ data class TestCaseResult(
     val timeMs: Double = 0.0,
     @field:Schema(description = "Peak memory usage in megabytes.", example = "12.4")
     val memoryMb: Double = 0.0,
-    @field:Schema(description = "Captured program stdout, when available.", example = "8")
-    val output: String? = null,
+    @field:Schema(description = "Captured solution return value, preserving its JSON type when possible.", example = "8")
+    val output: Any? = null,
     @field:Schema(description = "Compiler or runtime error text, when available.", example = "")
     val error: String? = null,
 )

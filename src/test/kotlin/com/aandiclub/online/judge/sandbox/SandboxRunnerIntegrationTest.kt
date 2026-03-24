@@ -37,7 +37,7 @@ class SandboxRunnerIntegrationTest {
         )
 
         assertEquals(TestCaseStatus.PASSED, result.status)
-        assertEquals("8", result.output)
+        assertEquals(8, result.output)
         assertEquals(null, result.error)
     }
 
@@ -50,7 +50,7 @@ class SandboxRunnerIntegrationTest {
         )
 
         assertEquals(TestCaseStatus.PASSED, result.status)
-        assertEquals("8", result.output)
+        assertEquals(8, result.output)
         assertEquals(null, result.error)
     }
 
@@ -63,7 +63,7 @@ class SandboxRunnerIntegrationTest {
         )
 
         assertEquals(TestCaseStatus.PASSED, result.status)
-        assertEquals("8", result.output)
+        assertEquals(8, result.output)
         assertEquals(null, result.error)
     }
 
@@ -92,7 +92,7 @@ class SandboxRunnerIntegrationTest {
         )
 
         assertEquals(TestCaseStatus.PASSED, result.status)
-        assertEquals("2097152", result.output)
+        assertEquals(2097152, result.output)
         assertTrue(result.memoryMb >= 1.0, "expected memoryMb >= 1.0, but was ${result.memoryMb}")
     }
 

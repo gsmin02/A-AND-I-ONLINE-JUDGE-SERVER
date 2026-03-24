@@ -20,6 +20,7 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.time.Instant
+import java.math.BigDecimal
 
 @Component
 class JudgeWorker(
@@ -117,14 +118,31 @@ class JudgeWorker(
 
     private fun resolveStatus(
         runnerStatus: TestCaseStatus,
-        output: String?,
+        output: Any?,
         memoryMb: Double,
-        expectedOutput: String,
+        expectedOutput: Any?,
     ): TestCaseStatus {
         if (runnerStatus != TestCaseStatus.PASSED) return runnerStatus
         if (memoryMb > sandboxProperties.memoryLimitMb) return TestCaseStatus.MEMORY_LIMIT_EXCEEDED
-        return if (output == expectedOutput) TestCaseStatus.PASSED else TestCaseStatus.WRONG_ANSWER
+        return if (outputsMatch(output, expectedOutput)) TestCaseStatus.PASSED else TestCaseStatus.WRONG_ANSWER
     }
+
+    private fun outputsMatch(actual: Any?, expected: Any?): Boolean = when {
+        actual == null || expected == null -> actual == expected
+        actual is Number && expected is Number -> actual.toBigDecimal().compareTo(expected.toBigDecimal()) == 0
+        actual is List<*> && expected is List<*> ->
+            actual.size == expected.size && actual.zip(expected).all { (a, e) -> outputsMatch(a, e) }
+        actual is Map<*, *> && expected is Map<*, *> -> {
+            val actualKeys = actual.keys.map { it.toString() }.toSet()
+            val expectedKeys = expected.keys.map { it.toString() }.toSet()
+            actualKeys == expectedKeys && actual.entries.all { (key, value) ->
+                outputsMatch(value, expected.entries.first { it.key.toString() == key.toString() }.value)
+            }
+        }
+        else -> actual == expected
+    }
+
+    private fun Number.toBigDecimal(): BigDecimal = BigDecimal(this.toString())
 
     private fun TestCaseStatus.toSubmissionStatus(): SubmissionStatus = when (this) {
         TestCaseStatus.PASSED -> SubmissionStatus.ACCEPTED

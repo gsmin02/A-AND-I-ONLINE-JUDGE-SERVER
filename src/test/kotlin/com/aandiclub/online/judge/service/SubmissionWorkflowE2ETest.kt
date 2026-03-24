@@ -95,7 +95,7 @@ class SubmissionWorkflowE2ETest {
             val sum = input.args.sumOf { (it as Number).toInt() }
             SandboxOutput(
                 status = TestCaseStatus.PASSED,
-                output = sum.toString(),
+                output = sum,
                 error = null,
                 timeMs = 1.2,
                 memoryMb = 2.4,
@@ -165,7 +165,7 @@ class SubmissionWorkflowE2ETest {
                 val sum = input.args.sumOf { (it as Number).toInt() }
                 SandboxOutput(
                     status = TestCaseStatus.PASSED,
-                    output = sum.toString(),
+                    output = sum,
                     error = null,
                     timeMs = 5.0,
                     memoryMb = 3.0,
@@ -228,7 +228,7 @@ class SubmissionWorkflowE2ETest {
     }
 
     companion object {
-        private val quiz101ExpectedOutputs = listOf("8", "12", "0", "-3", "350", "0", "1000", "100", "-42", "5555")
+        private val quiz101ExpectedOutputs = listOf(8, 12, 0, -3, 350, 0, 1000, 100, -42, 5555)
 
         @Container
         @ServiceConnection

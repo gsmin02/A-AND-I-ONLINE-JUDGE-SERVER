@@ -36,7 +36,14 @@ void main() async {
   // Generate solution.dart: user code + main() that writes result to a file
   // Uses string concatenation to avoid Dart template interpolation conflicts
   await sourceFile.writeAsString(
+    "import 'dart:convert';\n" +
     "import 'dart:io';\n\n" +
+    "Object? __judgeNormalizeJsonValue(Object? value) {\n" +
+    "  if (value == null || value is num || value is bool || value is String) return value;\n" +
+    "  if (value is List) return value.map((item) => __judgeNormalizeJsonValue(item)).toList();\n" +
+    "  if (value is Map) return { for (final entry in value.entries) entry.key.toString(): __judgeNormalizeJsonValue(entry.value) };\n" +
+    "  return value.toString();\n" +
+    "}\n\n" +
     code + "\n\n" +
     "void main() {\n" +
     "  final resultFile = File('$safeResultPath');\n" +
@@ -44,10 +51,10 @@ void main() async {
     "  try {\n" +
     "    final result = solution($argsLiteral);\n" +
     "    sw.stop();\n" +
-    "    resultFile.writeAsStringSync('OK\\n' + result.toString() + '\\n' + (sw.elapsedMicroseconds / 1000.0).toString());\n" +
+    "    resultFile.writeAsStringSync(jsonEncode({'status': 'OK', 'output': __judgeNormalizeJsonValue(result), 'timeMs': sw.elapsedMicroseconds / 1000.0}));\n" +
     "  } catch (e) {\n" +
     "    sw.stop();\n" +
-    "    resultFile.writeAsStringSync('RUNTIME_ERROR\\n' + e.toString() + '\\n' + (sw.elapsedMicroseconds / 1000.0).toString());\n" +
+    "    resultFile.writeAsStringSync(jsonEncode({'status': 'RUNTIME_ERROR', 'error': e.toString(), 'timeMs': sw.elapsedMicroseconds / 1000.0}));\n" +
     "  }\n" +
     "}\n"
   );
@@ -56,19 +63,18 @@ void main() async {
   final result = await Process.run('dart', ['run', sourceFile.path]);
 
   String? errorMsg;
-  String outputVal = '';
+  Object? outputVal;
   double timeMs = 0.0;
 
   if (resultFile.existsSync()) {
-    final lines = resultFile.readAsLinesSync();
-    final status = lines.isNotEmpty ? lines[0] : 'RUNTIME_ERROR';
-    final value = lines.length > 1 ? lines[1] : '';
-    timeMs = lines.length > 2 ? double.tryParse(lines[2]) ?? 0.0 : 0.0;
+    final resultPayload = jsonDecode(resultFile.readAsStringSync()) as Map<String, dynamic>;
+    final status = resultPayload['status'] as String? ?? 'RUNTIME_ERROR';
+    timeMs = (resultPayload['timeMs'] as num?)?.toDouble() ?? 0.0;
 
     if (status == 'OK') {
-      outputVal = value;
+      outputVal = resultPayload['output'];
     } else {
-      errorMsg = '$status: $value';
+      errorMsg = '$status: ${resultPayload['error'] ?? ''}';
     }
   } else {
     // result file not written → compile/syntax error

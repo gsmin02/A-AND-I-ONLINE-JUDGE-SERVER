@@ -65,12 +65,12 @@ class JudgeWorkerTest {
             language = Language.PYTHON,
             code = "def solution(a,b): return a+b",
         )
-        val testCases = listOf(TestCase(caseId = 1, args = listOf(3, 5), expectedOutput = "8"))
+        val testCases = listOf(TestCase(caseId = 1, args = listOf(3, 5), expectedOutput = 8))
         coEvery {
             sandboxRunner.run(Language.PYTHON, SandboxInput(submission.code, listOf(3, 5)))
         } returns SandboxOutput(
             status = TestCaseStatus.PASSED,
-            output = "8",
+            output = 8,
             error = null,
             timeMs = 1.2,
             memoryMb = 2.1,
@@ -108,10 +108,10 @@ class JudgeWorkerTest {
             language = Language.PYTHON,
             code = "def solution(a,b): return a+b",
         )
-        val testCases = listOf(TestCase(caseId = 1, args = listOf(3, 5), expectedOutput = "8"))
+        val testCases = listOf(TestCase(caseId = 1, args = listOf(3, 5), expectedOutput = 8))
         coEvery { sandboxRunner.run(Language.PYTHON, any()) } returns SandboxOutput(
             status = TestCaseStatus.PASSED,
-            output = "7",
+            output = 7,
             error = null,
             timeMs = 1.0,
             memoryMb = 2.0,
@@ -168,10 +168,10 @@ class JudgeWorkerTest {
             language = Language.PYTHON,
             code = "def solution(a,b): return a+b",
         )
-        val testCases = listOf(TestCase(caseId = 1, args = listOf(3, 5), expectedOutput = "8"))
+        val testCases = listOf(TestCase(caseId = 1, args = listOf(3, 5), expectedOutput = 8))
         coEvery { sandboxRunner.run(Language.PYTHON, any()) } returns SandboxOutput(
             status = TestCaseStatus.PASSED,
-            output = "8",
+            output = 8,
             error = null,
             timeMs = 5.0,
             memoryMb = 256.0,
@@ -203,7 +203,7 @@ class JudgeWorkerTest {
         )
         coEvery { sandboxRunner.run(Language.PYTHON, any()) } returns SandboxOutput(
             status = TestCaseStatus.PASSED,
-            output = "0",
+            output = 0,
             error = null,
             timeMs = 1.0,
             memoryMb = 2.0,
@@ -220,16 +220,16 @@ class JudgeWorkerTest {
 
     companion object {
         private val quiz101Cases = listOf(
-            TestCase(caseId = 1, args = listOf(3, 5), expectedOutput = "8"),
-            TestCase(caseId = 2, args = listOf(10, 2), expectedOutput = "12"),
-            TestCase(caseId = 3, args = listOf(0, 0), expectedOutput = "0"),
-            TestCase(caseId = 4, args = listOf(-7, 4), expectedOutput = "-3"),
-            TestCase(caseId = 5, args = listOf(100, 250), expectedOutput = "350"),
-            TestCase(caseId = 6, args = listOf(1, -1), expectedOutput = "0"),
-            TestCase(caseId = 7, args = listOf(999, 1), expectedOutput = "1000"),
-            TestCase(caseId = 8, args = listOf(42, 58), expectedOutput = "100"),
-            TestCase(caseId = 9, args = listOf(-20, -22), expectedOutput = "-42"),
-            TestCase(caseId = 10, args = listOf(1234, 4321), expectedOutput = "5555"),
+            TestCase(caseId = 1, args = listOf(3, 5), expectedOutput = 8),
+            TestCase(caseId = 2, args = listOf(10, 2), expectedOutput = 12),
+            TestCase(caseId = 3, args = listOf(0, 0), expectedOutput = 0),
+            TestCase(caseId = 4, args = listOf(-7, 4), expectedOutput = -3),
+            TestCase(caseId = 5, args = listOf(100, 250), expectedOutput = 350),
+            TestCase(caseId = 6, args = listOf(1, -1), expectedOutput = 0),
+            TestCase(caseId = 7, args = listOf(999, 1), expectedOutput = 1000),
+            TestCase(caseId = 8, args = listOf(42, 58), expectedOutput = 100),
+            TestCase(caseId = 9, args = listOf(-20, -22), expectedOutput = -42),
+            TestCase(caseId = 10, args = listOf(1234, 4321), expectedOutput = 5555),
         )
     }
 }

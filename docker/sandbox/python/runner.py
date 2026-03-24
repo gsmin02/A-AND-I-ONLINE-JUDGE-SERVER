@@ -2,6 +2,19 @@ import sys
 import json
 import time
 import tracemalloc
+import math
+
+
+def normalize_json_value(value):
+    if value is None or isinstance(value, (str, int, bool)):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else str(value)
+    if isinstance(value, dict):
+        return {str(key): normalize_json_value(val) for key, val in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [normalize_json_value(item) for item in value]
+    return str(value)
 
 def execute_solution(namespace, args):
     """
@@ -13,7 +26,7 @@ def execute_solution(namespace, args):
     try:
         result = namespace["solution"](*args)
         error = None
-        output = str(result)
+        output = normalize_json_value(result)
     except Exception as e:
         output = None
         error = f"RUNTIME_ERROR: {e}"
